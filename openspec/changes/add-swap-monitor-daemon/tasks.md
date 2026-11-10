@@ -46,7 +46,8 @@
 ## 9. CI релиза
 
 - [x] 9.1 Создать `.github/workflows/release.yml` (design D10): джоба deb — checkout, stable toolchain, кэш, `cargo test --locked`, `dpkg-buildpackage -us -uc -b`, артефакт `swapnotif-rs_<версия>_amd64.deb`; джоба публикации — проверка тег↔`Cargo.toml`, GitHub Release с .deb (`generate_release_notes`); `workflow_dispatch` с флагом publish; права `contents: read` / `contents: write` только у публикации.
-- [ ] 9.2 После задачи 8.1 (появления `debian/`) — прогнать workflow вручную (`workflow_dispatch`) и убедиться, что артефакт deb собран; публикацию проверить на тестовом теге `v0.1.0` после поднятия версии/согласования (расхождение тега и `Cargo.toml` должно ронять публикацию с понятной ошибкой).
+- [x] 9.2 Прогнать workflow вручную (`workflow_dispatch`) и убедиться, что артефакт deb собран. Живые прогоны на main выявили и закрыли два дефекта CI: явный `toolchain: stable` для dtolnay/rust-toolchain (0c83e96) и установка `build-essential` + `debhelper` на раннер — dpkg-checkbuilddeps не находил `debhelper-compat (= 13)` (d2022a9). Итог: запуск 42851343145 зелёный, артефакт `swapnotif-rs-deb` собран.
+- [ ] 9.3 Проверить публикацию на теге после согласования: расхождение тега и `Cargo.toml` должно ронять джобу публикации с понятной ошибкой (тестовый неверный тег), затем настоящий релиз `v0.1.0`.
 
 ## Workflow follow-up
 

@@ -34,7 +34,7 @@ use zbus::{OwnedObjectPath, OwnedVariant, Variant};
 const KIB_PER_MIB: u64 = 1024;
 
 /// Имя приложения в вызове `Notify`: показывает менеджер уведомлений.
-const APP_NAME: &str = "swapnotif-rs";
+const APP_NAME: &str = "swapnotif";
 /// Иконка уведомления: стандартное имя freedesktop (design, открытый
 /// вопрос про иконку закрыт в пользу `drive-multidisk`).
 const APP_ICON: &str = "drive-multidisk";
@@ -60,7 +60,7 @@ const CHILD_TIMEOUT: Duration = Duration::from_secs(15);
 const CHILD_STDERR_MAX_CHARS: usize = 200;
 
 /// Подкоманда одноразового режима точки входа:
-/// `swapnotif-rs notify-session <uid> <summary> <body>`.
+/// `swapnotif notify-session <uid> <summary> <body>`.
 const HELPER_SUBCOMMAND: &str = "notify-session";
 
 /// Служба и объект `org.freedesktop.Notifications` на сессионной шине.

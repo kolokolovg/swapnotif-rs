@@ -13,7 +13,9 @@ Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.7.2
 Homepage: https://github.com/kolokolovg/swapnotif-rs
 
-Package: swapnotif-rs
+# Бинарный пакет — продуктовое имя swapnotif (юнит, бинарник и конфиг
+# /etc/swapnotif тоже); source-пакет и crate остаются swapnotif-rs.
+Package: swapnotif
 # Переносимый Rust без архитектурной специфики: собирается там, где есть
 # cargo + dpkg (CI собирает на amd64; на других Linux-архитектурах
 # сборка из тех же исходников тоже валидна).
@@ -25,4 +27,4 @@ Description: Демон мониторинга занятости swap с уве
  атрибуции и отправляет уведомление на рабочий стол через D-Bus
  (org.freedesktop.Notifications, сессии от logind).
  Конфигурация опциональна: /etc/swapnotif/config.toml, дефолты зашиты
- в код (пример — /usr/share/doc/swapnotif-rs/examples/config.example.toml).
+ в код (пример — /usr/share/doc/swapnotif/examples/config.example.toml).

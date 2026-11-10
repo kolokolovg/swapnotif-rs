@@ -9,7 +9,7 @@ override_dh_auto_build:
 	cargo build --release --locked
 
 override_dh_auto_install:
-	install -Dm755 target/release/swapnotif-rs debian/swapnotif-rs/usr/bin/swapnotif-rs
+	install -Dm755 target/release/swapnotif debian/swapnotif/usr/bin/swapnotif
 
 # Тесты в упаковке не дублируем: CI релиза (release.yml) гонит
 # cargo test --locked непосредственно перед dpkg-buildpackage, так что

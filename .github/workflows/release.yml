@@ -47,7 +47,7 @@ jobs:
         run: dpkg-buildpackage -us -uc -b
       # dpkg-buildpackage кладёт пакет в родительский каталог.
       - name: deb в рабочую папку
-        run: mv ../swapnotif-rs_*.deb .
+        run: mv ../swapnotif_*.deb .
       - name: Версия из Cargo.toml
         id: version
         run: echo "version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "swapnotif-rs") | .version')" >> "$GITHUB_OUTPUT"
@@ -59,8 +59,8 @@ jobs:
           [ "$deb_version" = "${{ steps.version.outputs.version }}" ] || { echo "::error::debian/changelog содержит $deb_version, а Cargo.toml — ${{ steps.version.outputs.version }}. Обновите debian/changelog."; exit 1; }
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: swapnotif-rs-deb
-          path: swapnotif-rs_*.deb
+          name: swapnotif-deb
+          path: swapnotif_*.deb
           if-no-files-found: error
 
   release:

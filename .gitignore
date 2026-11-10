@@ -7,4 +7,4 @@
 /debian/*.substvars
 /debian/*.debhelper
 /debian/*.debhelper.log
-/debian/swapnotif-rs/
+/debian/swapnotif/

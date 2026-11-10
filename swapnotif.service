@@ -1,4 +1,4 @@
-# Юнит system-демона swapnotif-rs (задача 8.1, design D9).
+# Юнит system-демона swapnotif (задача 8.1, design D9).
 # Требования спеки daemon-lifecycle:
 #   - Type=notify: готовность — sd_notify READY=1 после инициализации;
 #   - Restart=on-failure: аварийный перезапуск (цикл ограничен StartLimit);
@@ -18,7 +18,7 @@ After=systemd-user-sessions.service
 
 [Service]
 Type=notify
-ExecStart=/usr/bin/swapnotif-rs
+ExecStart=/usr/bin/swapnotif
 Restart=on-failure
 Environment=RUST_LOG=info
 # Файловая система только на чтение, кроме /dev, /proc, /run: демону

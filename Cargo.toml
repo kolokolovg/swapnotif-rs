@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2024"
 license = "BSD-3-Clause"
 
+# Продуктовое имя — swapnotif: так зовутся бинарник, deb-пакет и юнит,
+# crate и репозиторий остаются swapnotif-rs (как ripgrep → пакет ripgrep).
+[[bin]]
+name = "swapnotif"
+path = "src/main.rs"
+
 [dependencies]
 # Ошибки на границе main.rs
 anyhow = "1.0.104"

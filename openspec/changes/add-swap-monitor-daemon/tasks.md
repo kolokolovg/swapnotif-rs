@@ -47,7 +47,7 @@
 
 - [x] 9.1 Создать `.github/workflows/release.yml` (design D10): джоба deb — checkout, stable toolchain, кэш, `cargo test --locked`, `dpkg-buildpackage -us -uc -b`, артефакт `swapnotif-rs_<версия>_amd64.deb`; джоба публикации — проверка тег↔`Cargo.toml`, GitHub Release с .deb (`generate_release_notes`); `workflow_dispatch` с флагом publish; права `contents: read` / `contents: write` только у публикации.
 - [x] 9.2 Прогнать workflow вручную (`workflow_dispatch`) и убедиться, что артефакт deb собран. Живые прогоны на main выявили и закрыли два дефекта CI: явный `toolchain: stable` для dtolnay/rust-toolchain (0c83e96) и установка `build-essential` + `debhelper` на раннер — dpkg-checkbuilddeps не находил `debhelper-compat (= 13)` (d2022a9). Итог: запуск 42851343145 зелёный, артефакт `swapnotif-rs-deb` собран.
-- [ ] 9.3 Проверить публикацию на теге после согласования: расхождение тега и `Cargo.toml` должно ронять джобу публикации с понятной ошибкой (тестовый неверный тег), затем настоящий релиз `v0.1.0`.
+- [x] 9.3 Проверить публикацию на теге. Негативный тест: пуш тега `v0.2.0` (≠ Cargo.toml 0.1.0) → джоба публикации упала с ошибкой «Тег ссылается на v0.2.0, а Cargo.toml — 0.1.0», релиз не создан, тег удалён (запуск 42852486938). Позитивный: тег `v0.1.0` → запуск 42852886128 зелёный, GitHub Release v0.1.0 опубликован с `swapnotif-rs_0.1.0-1_amd64.deb` и автозаметками; пакет из релиза проверен (Version 0.1.0-1, юнит и пример конфига на месте).
 
 ## Workflow follow-up
 

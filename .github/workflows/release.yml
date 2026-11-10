@@ -1,0 +1,95 @@
+# Релиз: Linux deb. Автопубликация — пушем тега v*; ручной запуск из Actions
+# собирает те же артефакты, а с галочкой publish публикует их как GitHub
+# Release (запускать на теге — номер релиза берётся из тега). Версия deb —
+# из Cargo.toml, расхождение с тегом останавливает публикацию с явной ошибкой.
+# Сборка — dpkg-buildpackage (design D9/D10): debian/ с dh_installsystemd —
+# именно он включает и запускает сервис при установке; cargo-deb этого
+# не даёт. Джоба позеленеет после задачи 8.1 (создание debian/).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Опубликовать GitHub Release (запускать на теге v*)'
+        type: boolean
+        default: false
+
+# Право записи нужно только публикации; сборочной job'е достаточно чтения.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deb:
+    name: deb-пакет (ubuntu)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+      # Тесты — гейт перед упаковкой: пакет собирается только из зелёного кода.
+      - name: cargo test
+        run: cargo test --locked
+      - name: Сборка deb
+        run: dpkg-buildpackage -us -uc -b
+      # dpkg-buildpackage кладёт пакет в родительский каталог.
+      - name: deb в рабочую папку
+        run: mv ../swapnotif-rs_*.deb .
+      - name: Версия из Cargo.toml
+        id: version
+        run: echo "version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "swapnotif-rs") | .version')" >> "$GITHUB_OUTPUT"
+      # Забытый при бампе debian/changelog иначе молча соберёт deb старой версии.
+      - name: Версия debian/changelog совпадает с Cargo.toml
+        run: |
+          deb_version="$(dpkg-parsechangelog -l debian/changelog -S Version)"
+          deb_version="${deb_version%%-*}"
+          [ "$deb_version" = "${{ steps.version.outputs.version }}" ] || { echo "::error::debian/changelog содержит $deb_version, а Cargo.toml — ${{ steps.version.outputs.version }}. Обновите debian/changelog."; exit 1; }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: swapnotif-rs-deb
+          path: swapnotif-rs_*.deb
+          if-no-files-found: error
+
+  release:
+    name: публикация
+    needs: [deb]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event_name == 'push' || inputs.publish == true
+    steps:
+      # Ручной запуск с publish на ветке (не на теге) — явная ошибка вместо
+      # тихого пропуска, чтобы не гадать, почему релиза нет.
+      - name: Публикация только с тега v*
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          echo "::error::Release публикуется только с тега v*: перезапустите workflow на теге (Run workflow → выбор тега) или снимите галочку publish — сборки останутся в артефактах запуска."
+          exit 1
+      - name: Тег совпадает с версией Cargo.toml
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          DEB_VERSION: ${{ needs.deb.outputs.version }}
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          [ "$tag" = "$DEB_VERSION" ] || { echo "::error::Тег ссылается на v$tag, а Cargo.toml — $DEB_VERSION. Поднимите версию в Cargo.toml и перетегуйте."; exit 1; }
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Файлы релиза
+        run: ls -l artifacts
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: artifacts/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

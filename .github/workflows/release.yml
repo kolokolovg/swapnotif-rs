@@ -39,6 +39,10 @@ jobs:
       # Тесты — гейт перед упаковкой: пакет собирается только из зелёного кода.
       - name: cargo test
         run: cargo test --locked
+      # На ubuntu-latest нет ни build-essential (dpkg-checkbuilddeps требует
+      # его неявно), ни debhelper, который даёт debhelper-compat (= 13).
+      - name: Зависимости сборки deb
+        run: sudo apt-get update && sudo apt-get install -y build-essential debhelper
       - name: Сборка deb
         run: dpkg-buildpackage -us -uc -b
       # dpkg-buildpackage кладёт пакет в родительский каталог.

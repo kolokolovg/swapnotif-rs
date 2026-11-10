@@ -1,0 +1,6 @@
+nr_free_pages 2054837
+nr_zone_inactive_anon 486692
+pswpin 100
+pswpout 1000
+pgfault 98765432
+pgmajfault 123

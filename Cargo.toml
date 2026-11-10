@@ -5,3 +5,20 @@ edition = "2024"
 license = "BSD-3-Clause"
 
 [dependencies]
+# Ошибки на границе main.rs
+anyhow = "1.0.104"
+# D8: конфиг с derive-десериализацией
+serde = { version = "1.0.229", default-features = false, features = ["derive"] }
+# Типизированные ошибки библиотечных модулей
+thiserror = "2.0.21"
+# D1: один последовательный таск-цикл демона (rt-multi-thread, macros, time для interval, signal для SIGTERM);
+# process — self-exec дочерний процесс доставки от uid сессии (обновление design D6)
+tokio = { version = "1.54.1", default-features = false, features = ["rt-multi-thread", "macros", "time", "signal", "process"] }
+# D8: парсинг TOML-конфига
+toml = "1.2.1"
+# Логи демона (вывод → stdout → journald)
+tracing = "0.1.44"
+# Инициализация вывода логов (fmt + фильтрация по RUST_LOG)
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "env-filter"] }
+# D6: D-Bus доставка org.freedesktop.Notifications; работаем внутри tokio-рантайма
+zbus = { version = "6.2.1", default-features = false, features = ["tokio"] }

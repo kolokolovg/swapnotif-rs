@@ -1,0 +1,7 @@
+Name:	demo-proc
+Umask:	0022
+State:	S (sleeping)
+Tgid:	4242
+Pid:	4242
+VmSwap:	  suddenly kB
+Threads:	14

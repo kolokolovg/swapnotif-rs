@@ -1,0 +1,10 @@
+Name:	demo-proc
+Umask:	0022
+State:	S (sleeping)
+Tgid:	4242
+Pid:	4242
+PPid:	1
+VmPeak:	 2048000 kB
+VmSize:	 1948000 kB
+VmLck:	       0 kB
+Threads:	14

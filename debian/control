@@ -1,0 +1,28 @@
+Source: swapnotif-rs
+Section: admin
+Priority: optional
+Maintainer: Gleb Kolokolov <tempestusalert@yandex.ru>
+# cargo/rustc СОЗНАТЕЛЬНО не объявлены в Build-Depends: тулчейн ставится
+# через rustup вне dpkg-базы — локально (~/.cargo/bin) и в CI релиза
+# (release.yml: dtolnay/rust-toolchain на ubuntu-latest, где пакетов
+# cargo/rustc в dpkg-базе нет). Объявление дало бы ложные «unmet build
+# dependencies» в dpkg-checkbuilddeps, а CI вызывает
+# `dpkg-buildpackage -us -uc -b` без -d. debhelper — единственная
+# реальная зависимость сборки.
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.2
+Homepage: https://github.com/kolokolovg/swapnotif-rs
+
+Package: swapnotif-rs
+# Переносимый Rust без архитектурной специфики: собирается там, где есть
+# cargo + dpkg (CI собирает на amd64; на других Linux-архитектурах
+# сборка из тех же исходников тоже валидна).
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Демон мониторинга занятости swap с уведомлениями
+ Периодически опрашивает /proc/meminfo и при превышении порога занятости
+ swap определяет процесс с наибольшим приростом потребления за окно
+ атрибуции и отправляет уведомление на рабочий стол через D-Bus
+ (org.freedesktop.Notifications, сессии от logind).
+ Конфигурация опциональна: /etc/swapnotif/config.toml, дефолты зашиты
+ в код (пример — /usr/share/doc/swapnotif-rs/examples/config.example.toml).

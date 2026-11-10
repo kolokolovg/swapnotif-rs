@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+# cargo не в dpkg-базе (см. комментарий в debian/control), поэтому
+# стандартные buildsystem-детекторы dh тут не работают — собираем явно.
+override_dh_auto_build:
+	cargo build --release --locked
+
+override_dh_auto_install:
+	install -Dm755 target/release/swapnotif-rs debian/swapnotif-rs/usr/bin/swapnotif-rs
+
+# Тесты в упаковке не дублируем: CI релиза (release.yml) гонит
+# cargo test --locked непосредственно перед dpkg-buildpackage, так что
+# пакет собирается только из зелёного кода; повторный прогон здесь
+# удваивал бы время сборки без новой информации.
+override_dh_auto_test:
+	# намеренно пусто (см. комментарий выше)

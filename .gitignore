@@ -1,1 +1,10 @@
 /target
+
+# Артефакты dh / dpkg-buildpackage (сам .deb кладётся в ../ — вне репо)
+/debian/.debhelper/
+/debian/debhelper-build-stamp
+/debian/files
+/debian/*.substvars
+/debian/*.debhelper
+/debian/*.debhelper.log
+/debian/swapnotif-rs/

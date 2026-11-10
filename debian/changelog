@@ -1,0 +1,6 @@
+swapnotif-rs (0.1.0-1) unstable; urgency=medium
+
+  * Initial release: systemd-демон мониторинга занятости swap
+    с уведомлениями рабочего стола (Closes: не требуется — вне Debian).
+
+ -- Gleb Kolokolov <tempestusalert@yandex.ru>  Tue, 10 Nov 2026 16:55:21 +0300

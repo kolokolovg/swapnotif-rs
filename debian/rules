@@ -10,6 +10,10 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	install -Dm755 target/release/swapnotif debian/swapnotif/usr/bin/swapnotif
+	# desktop-файл для резолва отправителя уведомлений (hint
+	# desktop-entry, design D1/D2 change'а add-notification-desktop-entry):
+	# без него менеджер уведомлений не сохраняет уведомления в истории.
+	install -Dm644 packaging/swapnotif.desktop debian/swapnotif/usr/share/applications/swapnotif.desktop
 
 # Тесты в упаковке не дублируем: CI релиза (release.yml) гонит
 # cargo test --locked непосредственно перед dpkg-buildpackage, так что

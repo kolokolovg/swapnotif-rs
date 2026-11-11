@@ -1,3 +1,10 @@
+swapnotif-rs (0.1.1) unstable; urgency=medium
+
+  * Уведомления остаются в истории менеджера уведомлений Plasma:
+    подсказка desktop-entry в вызове Notify, desktop-файл в пакете.
+
+ -- Gleb Kolokolov <tempestusalert@yandex.ru>  Wed, 11 Nov 2026 20:30:06 +0300
+
 swapnotif-rs (0.1.0) unstable; urgency=medium
 
   * Initial release: systemd-демон мониторинга занятости swap

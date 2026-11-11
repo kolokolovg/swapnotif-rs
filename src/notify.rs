@@ -43,6 +43,17 @@ const NOTIFY_REPLACES_ID: u32 = 0;
 /// Таймаут уведомления, мс: −1 — умолчание менеджера уведомлений.
 const NOTIFY_EXPIRE_TIMEOUT_MS: i32 = -1;
 
+/// Hint вызова `Notify` для идентификации отправителя: менеджер
+/// уведомлений резолвит по нему desktop-файл приложения и сохраняет
+/// уведомление в истории сессии (спека `org.freedesktop.Notifications`,
+/// design D1).
+const DESKTOP_ENTRY_HINT: &str = "desktop-entry";
+/// Идентификатор desktop-файла пакета (`packaging/swapnotif.desktop`,
+/// ставится в `/usr/share/applications/`): значение hint
+/// [`DESKTOP_ENTRY_HINT`]. Совпадение с [`APP_NAME`] — сознательный
+/// инвариант «один токен на приложение» (design D2), сторожит юнит-тест.
+const DESKTOP_ENTRY_ID: &str = "swapnotif";
+
 /// Таймаут одного D-Bus-вызова: zbus 6 по умолчанию не ограничивает
 /// ожидание ответа (`method_timeout == None`), и зависшая, но живая
 /// шина блокировала бы единственный таск демона навсегда.
@@ -441,14 +452,22 @@ fn exit_status_text(status: &ExitStatus) -> String {
 /// напрямую ([`notify_once`]). Тело ответа (id уведомления) не читается:
 /// Ok вызова == доставлено, мусорный ответ не влияет на работу
 /// (граница доверия).
+/// Hints вызова `Notify`: единственная подсказка `desktop-entry` —
+/// идентификация отправителя для истории менеджера уведомлений
+/// (design D1). Чистая функция: подсказка тестируется без D-Bus.
+fn notify_hints() -> HashMap<&'static str, Variant<'static>> {
+    HashMap::from([(DESKTOP_ENTRY_HINT, Variant::from(DESKTOP_ENTRY_ID))])
+}
+
 async fn send_notify(uid: u32, summary: &str, body: &str) -> zbus::Result<()> {
     let connection = zbus::connection::Builder::address(user_bus_address(uid).as_str())
         .method_timeout(DBUS_METHOD_TIMEOUT)
         .build()
         .await?;
-    // Кнопки действий и hints уведомления — вне скоупа (design Non-Goals).
+    // Кнопки действий остаются вне скоупа (design Non-Goals); hints —
+    // ровно один: идентификация отправителя (design D1).
     let no_actions: Vec<&str> = Vec::new();
-    let no_hints: HashMap<&str, Variant> = HashMap::new();
+    let hints = notify_hints();
     connection
         .call_method(
             Some(NOTIFICATIONS_SERVICE),
@@ -462,7 +481,7 @@ async fn send_notify(uid: u32, summary: &str, body: &str) -> zbus::Result<()> {
                 summary,
                 body,
                 no_actions,
-                no_hints,
+                hints,
                 NOTIFY_EXPIRE_TIMEOUT_MS,
             ),
         )
@@ -787,6 +806,28 @@ mod tests {
         assert_eq!(exit_status_text(&ExitStatus::from_raw(0)), "exit=0");
         assert_eq!(exit_status_text(&ExitStatus::from_raw(9 << 8)), "exit=9");
         assert_eq!(exit_status_text(&ExitStatus::from_raw(15)), "signal=15");
+    }
+
+    /// Hints вызова `Notify`: ровно одна подсказка `desktop-entry`, её
+    /// значение совпадает с [`APP_NAME`] — инвариант «один токен на
+    /// приложение» (design D2): расхождение ломает резолв отправителя
+    /// менеджером уведомлений и уведомления снова исчезают из истории.
+    #[test]
+    fn notify_hints_desktop_entry_matches_app_name() {
+        let hints = notify_hints();
+        assert_eq!(
+            hints.len(),
+            1,
+            "hints вызова Notify ограничены desktop-entry"
+        );
+        assert_eq!(
+            hints.get(DESKTOP_ENTRY_HINT),
+            Some(&Variant::from(DESKTOP_ENTRY_ID))
+        );
+        assert_eq!(
+            DESKTOP_ENTRY_ID, APP_NAME,
+            "идентификатор desktop-файла и имя приложения — один токен"
+        );
     }
 
     /// Ручной фейк `Notifier` (без mockall): исходы по сессиям заданы

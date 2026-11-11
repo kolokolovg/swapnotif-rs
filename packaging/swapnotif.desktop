@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=swapnotif
+GenericName=Мониторинг swap
+Comment=Уведомления о высокой занятости swap
+Exec=/usr/bin/swapnotif
+NoDisplay=true
+Terminal=false
+Categories=System;Monitor;

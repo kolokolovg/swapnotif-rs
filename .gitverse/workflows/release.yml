@@ -123,11 +123,26 @@ jobs:
               release_id="$(printf '%s' "$body" | jq -r '.id')"
             fi
           fi
-          resp="$(curl -sS -w '\n%{http_code}' -X POST "$api/releases/$release_id/assets?name=$deb" \
-            -H "Accept: $ACCEPT" \
-            -H "Authorization: Bearer $RELEASE_TOKEN" \
-            -F "attachment=@$deb")"
+          # id обязателен числовой: конверт-обёртка ответа дала бы null и
+          # невалидный путь /releases/null/assets (немой 400 gateway'а).
+          [[ "$release_id" =~ ^[0-9]+$ ]] || { echo "::error::Некорректный id релиза '$release_id' из ответа: $body"; exit 1; }
+          echo "Релиз $tag: id=$release_id"
+          # Загрузка deb. Вариант A — в точности из доков (Content-Type
+          # без boundary), вариант B — автоматический multipart curl;
+          # результат каждого виден в логе.
+          upload() {
+            curl -sS -w '\n%{http_code}' -X POST "$api/releases/$release_id/assets?name=$deb" \
+              -H "Accept: $ACCEPT" \
+              -H "Authorization: Bearer $RELEASE_TOKEN" \
+              "$@" -F "attachment=@$deb"
+          }
+          resp="$(upload -H 'Content-Type: multipart/form-data')"
           code="${resp##*$'\n'}"; body="${resp%$'\n'*}"
+          if [ "$code" != 201 ]; then
+            echo "::warning::Загрузка, вариант A (Content-Type из доков): HTTP $code: $body"
+            resp="$(upload)"
+            code="${resp##*$'\n'}"; body="${resp%$'\n'*}"
+          fi
           [ "$code" = 201 ] || { echo "::error::Загрузка вложения $deb: HTTP $code: $body"; exit 1; }
           echo "Релиз $tag опубликован: $api/releases/$release_id"
       # Ручная сборка без публикации — deb в артефакты запуска.

@@ -77,6 +77,8 @@ jobs:
           TAG_NAME: ${{ gitverse.event_name == 'push' && gitverse.ref_name || inputs.tag }}
           REPOSITORY: ${{ gitverse.repository }}
           API_BASE: https://api.gitverse.ru
+          # Без этого Accept API GitVerse отвечает 415 на любой запрос.
+          ACCEPT: application/vnd.gitverse.object+json;version=1
         run: |
           set -euo pipefail
           . versions.env
@@ -90,9 +92,10 @@ jobs:
           notes="$(awk -v ver="## [$CARGO_VERSION]" 'index($0, ver) == 1 {f=1; next} /^## /{f=0} f' CHANGELOG.md)"
           [ -n "$notes" ] || notes="swapnotif v$CARGO_VERSION"
           api="$API_BASE/repos/$REPOSITORY"
-          release_id="$(curl -fsS -H "Authorization: Bearer $RELEASE_TOKEN" "$api/releases/tags/$tag" | jq -r '.id // empty' || true)"
+          release_id="$(curl -fsS -H "Accept: $ACCEPT" -H "Authorization: Bearer $RELEASE_TOKEN" "$api/releases/tags/$tag" | jq -r '.id // empty' || true)"
           if [ -z "$release_id" ]; then
             release_id="$(curl -fsS -X POST "$api/releases" \
+              -H "Accept: $ACCEPT" \
               -H "Authorization: Bearer $RELEASE_TOKEN" \
               -H 'Content-Type: application/json' \
               -d "$(jq -n --arg tag "$tag" --arg ver "$CARGO_VERSION" --arg notes "$notes" \
@@ -100,6 +103,7 @@ jobs:
               | jq -r '.id')"
           fi
           curl -fsS -X POST "$api/releases/$release_id/assets?name=$deb" \
+            -H "Accept: $ACCEPT" \
             -H "Authorization: Bearer $RELEASE_TOKEN" \
             -F "attachment=@$deb"
           echo "Релиз $tag опубликован: $api/releases/$release_id"

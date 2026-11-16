@@ -1,6 +1,8 @@
 # Релиз: Linux deb на GitVerse (зеркало .github/workflows/release.yml).
-# Автопубликация — пушем тега v*; ручной запуск из CI с галочкой publish
-# публикует релиз на GitVerse (запускать на теге — номер берётся из тега).
+# Автопубликация — пушем тега v*. Ручной запуск (workflow_dispatch) с полем
+# tag публикует релиз для СУЩЕСТВУЮЩЕГО тега — догоняющая публикация уже
+# выпущенной версии (случай зеркала: тег появился до появления этого
+# workflow); без tag — сборка в артефакты без публикации.
 # Версия deb — из Cargo.toml; расхождение с тегом или debian/changelog
 # останавливает публикацию с явной ошибкой. Сборка — dpkg-buildpackage
 # (design D9/D10): debian/ с dh_installsystemd — именно он включает и
@@ -16,10 +18,11 @@ on:
     tags: ['v*']
   workflow_dispatch:
     inputs:
-      publish:
-        description: 'Опубликовать релиз GitVerse (запускать на теге v*)'
-        type: boolean
-        default: false
+      tag:
+        description: 'Существующий тег v* для публикации релиза (пусто — только сборка)'
+        type: string
+        required: false
+        default: ''
 
 env:
   CARGO_TERM_COLOR: always
@@ -64,29 +67,23 @@ jobs:
           deb_version="$(dpkg-parsechangelog -l debian/changelog -S Version)"
           deb_version="${deb_version%%-*}"
           [ "$deb_version" = "$CARGO_VERSION" ] || { echo "::error::debian/changelog содержит $deb_version, а Cargo.toml — $CARGO_VERSION. Обновите debian/changelog."; exit 1; }
-      # Ручной запуск с publish на ветке (не на теге) — явная ошибка вместо
-      # тихого пропуска, чтобы не гадать, почему релиза нет.
-      - name: Публикация только с тега v*
-        if: ${{ (gitverse.event_name == 'push' || inputs.publish == true) && !startsWith(gitverse.ref, 'refs/tags/') }}
-        run: |
-          echo "::error::Release публикуется только с тега v*: перезапустите workflow на теге (Run workflow → выбор тега) или снимите галочку publish — сборка останется в артефактах запуска."
-          exit 1
-      # Пуш тега всегда публикует; dispatch — только с publish=true.
-      # Повторный запуск по тому же тегу переиспользует существующий релиз
-      # и доложит в него свежий deb.
+      # Пуш тега всегда публикует; dispatch — только с явным существующим
+      # тегом в поле tag (сам workflow теги не создаёт). Повторный запуск по
+      # тому же тегу переиспользует существующий релиз и доложит свежий deb.
       - name: Релиз GitVerse
-        if: ${{ gitverse.event_name == 'push' || inputs.publish == true }}
+        if: ${{ gitverse.event_name == 'push' || inputs.tag != '' }}
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-          REF_NAME: ${{ gitverse.ref_name }}
+          TAG_NAME: ${{ gitverse.event_name == 'push' && gitverse.ref_name || inputs.tag }}
           REPOSITORY: ${{ gitverse.repository }}
           API_BASE: https://api.gitverse.ru
         run: |
           set -euo pipefail
           . versions.env
-          tag="$REF_NAME"
+          tag="$TAG_NAME"
           # Тег совпадает с версией Cargo.toml.
           [ "$tag" = "v$CARGO_VERSION" ] || { echo "::error::Тег $tag ссылается не на v$CARGO_VERSION, а Cargo.toml — $CARGO_VERSION. Поднимите версию в Cargo.toml и перетегуйте."; exit 1; }
+          git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null || { echo "::error::Тега $tag нет в репозитории — релиз создаётся только на существующий тег."; exit 1; }
           deb="swapnotif_${CARGO_VERSION}_amd64.deb"
           [ -f "$deb" ] || { echo "::error::Не найден собранный пакет $deb"; exit 1; }
           # Заметки релиза — секция версии из CHANGELOG.md.
@@ -108,7 +105,7 @@ jobs:
           echo "Релиз $tag опубликован: $api/releases/$release_id"
       # Ручная сборка без публикации — deb в артефакты запуска.
       - uses: actions/upload-artifact@v4
-        if: ${{ !(gitverse.event_name == 'push' || inputs.publish == true) }}
+        if: ${{ !(gitverse.event_name == 'push' || inputs.tag != '') }}
         with:
           name: swapnotif-deb
           path: swapnotif_*.deb

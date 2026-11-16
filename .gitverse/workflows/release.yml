@@ -75,7 +75,6 @@ jobs:
         env:
           RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           TAG_NAME: ${{ gitverse.event_name == 'push' && gitverse.ref_name || inputs.tag }}
-          REPOSITORY: ${{ gitverse.repository }}
           API_BASE: https://api.gitverse.ru
           # Без этого Accept API GitVerse отвечает 415 на любой запрос.
           ACCEPT: application/vnd.gitverse.object+json;version=1
@@ -85,27 +84,51 @@ jobs:
           tag="$TAG_NAME"
           # Тег совпадает с версией Cargo.toml.
           [ "$tag" = "v$CARGO_VERSION" ] || { echo "::error::Тег $tag ссылается не на v$CARGO_VERSION, а Cargo.toml — $CARGO_VERSION. Поднимите версию в Cargo.toml и перетегуйте."; exit 1; }
-          git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null || { echo "::error::Тега $tag нет в репозитории — релиз создаётся только на существующий тег."; exit 1; }
+          # Тег существует; ^{} у аннотированного даёт коммит (последняя строка).
+          tag_sha="$(git ls-remote origin "refs/tags/$tag" "refs/tags/$tag^{}" | awk 'END{print $1}')"
+          [ -n "$tag_sha" ] || { echo "::error::Тега $tag нет в репозитории — релиз создаётся только на существующий тег."; exit 1; }
           deb="swapnotif_${CARGO_VERSION}_amd64.deb"
           [ -f "$deb" ] || { echo "::error::Не найден собранный пакет $deb"; exit 1; }
           # Заметки релиза — секция версии из CHANGELOG.md.
           notes="$(awk -v ver="## [$CARGO_VERSION]" 'index($0, ver) == 1 {f=1; next} /^## /{f=0} f' CHANGELOG.md)"
           [ -n "$notes" ] || notes="swapnotif v$CARGO_VERSION"
-          api="$API_BASE/repos/$REPOSITORY"
-          release_id="$(curl -fsS -H "Accept: $ACCEPT" -H "Authorization: Bearer $RELEASE_TOKEN" "$api/releases/tags/$tag" | jq -r '.id // empty' || true)"
+          # owner/repo из origin: форма gitverse.repository не документирована,
+          # неверный путь даёт немые 404/400. Каждый вызов печатает код и тело
+          # ответа при ошибке — причина видна в логе, а не угадывается.
+          repo_slug="$(git remote get-url origin | sed -E 's#\.git/?$##; s#.*[:/]([^/]+)/([^/]+)$#\1/\2#')"
+          api="$API_BASE/repos/$repo_slug"
+          echo "Релизный API: $api"
+          # Существующий релиз (404 = релиза на теге ещё нет — норма).
+          resp="$(curl -sS -w '\n%{http_code}' -H "Accept: $ACCEPT" -H "Authorization: Bearer $RELEASE_TOKEN" "$api/releases/tags/$tag")"
+          code="${resp##*$'\n'}"; body="${resp%$'\n'*}"
+          release_id=""
+          [ "$code" != 404 ] && { [ "$code" = 200 ] || { echo "::error::GET релиза: HTTP $code: $body"; exit 1; }; release_id="$(printf '%s' "$body" | jq -r '.id')"; }
           if [ -z "$release_id" ]; then
-            release_id="$(curl -fsS -X POST "$api/releases" \
+            payload="$(jq -n --arg tag "$tag" --arg sha "$tag_sha" --arg ver "$CARGO_VERSION" --arg notes "$notes" \
+              '{tag_name: $tag, name: ("swapnotif v" + $ver), target_commitish: $sha, body: $notes, draft: false, prerelease: false, is_authorized_only: false}')"
+            resp="$(curl -sS -w '\n%{http_code}' -X POST "$api/releases" \
               -H "Accept: $ACCEPT" \
               -H "Authorization: Bearer $RELEASE_TOKEN" \
               -H 'Content-Type: application/json' \
-              -d "$(jq -n --arg tag "$tag" --arg ver "$CARGO_VERSION" --arg notes "$notes" \
-                '{tag_name: $tag, name: ("swapnotif v" + $ver), body: $notes, draft: false, prerelease: false}')" \
-              | jq -r '.id')"
+              -d "$payload")"
+            code="${resp##*$'\n'}"; body="${resp%$'\n'*}"
+            # 409: релиз на теге создан параллельно — забираем его id.
+            if [ "$code" = 409 ]; then
+              resp="$(curl -sS -w '\n%{http_code}' -H "Accept: $ACCEPT" -H "Authorization: Bearer $RELEASE_TOKEN" "$api/releases/tags/$tag")"
+              code="${resp##*$'\n'}"; body="${resp%$'\n'*}"
+              [ "$code" = 200 ] || { echo "::error::GET релиза после 409: HTTP $code: $body"; exit 1; }
+              release_id="$(printf '%s' "$body" | jq -r '.id')"
+            else
+              [ "$code" = 201 ] || { echo "::error::Создание релиза: HTTP $code: $body"; exit 1; }
+              release_id="$(printf '%s' "$body" | jq -r '.id')"
+            fi
           fi
-          curl -fsS -X POST "$api/releases/$release_id/assets?name=$deb" \
+          resp="$(curl -sS -w '\n%{http_code}' -X POST "$api/releases/$release_id/assets?name=$deb" \
             -H "Accept: $ACCEPT" \
             -H "Authorization: Bearer $RELEASE_TOKEN" \
-            -F "attachment=@$deb"
+            -F "attachment=@$deb")"
+          code="${resp##*$'\n'}"; body="${resp%$'\n'*}"
+          [ "$code" = 201 ] || { echo "::error::Загрузка вложения $deb: HTTP $code: $body"; exit 1; }
           echo "Релиз $tag опубликован: $api/releases/$release_id"
       # Ручная сборка без публикации — deb в артефакты запуска.
       - uses: actions/upload-artifact@v4

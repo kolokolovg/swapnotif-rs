@@ -8,3 +8,6 @@
 /debian/*.debhelper
 /debian/*.debhelper.log
 /debian/swapnotif/
+
+# Локальное состояние плагина Mimosa (hook-state и пр.)
+/.mimosa/
